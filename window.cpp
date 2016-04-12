@@ -91,7 +91,7 @@ Window::Window()
 
     this->captureTargetSpinBox = new QSpinBox; // set percentage for capture rate needed to win
     captureTargetSpinBox->setRange(1, 100);
-    captureTargetSpinBox->setValue(100);
+    captureTargetSpinBox->setValue(90);
     layout->addWidget(captureTargetSpinBox, 2, 1);
     layout->setAlignment(captureTargetSpinBox, Qt::AlignLeft);
     connect(captureTargetSpinBox, SIGNAL(valueChanged(int)), this, SLOT(updateCaptureTarget()));
@@ -104,7 +104,7 @@ Window::Window()
 
     this->maxRoundsSpinBox = new QSpinBox; // set max num of rounds before game over
     maxRoundsSpinBox->setRange(100, 10000);
-    maxRoundsSpinBox->setValue(1000);
+    maxRoundsSpinBox->setValue(5000);
     layout->addWidget(maxRoundsSpinBox, 2, 1);
     layout->setAlignment(maxRoundsSpinBox, Qt::AlignCenter);
     connect(maxRoundsSpinBox, SIGNAL(valueChanged(int)), this, SLOT(updateMaxRounds()));

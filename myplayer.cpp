@@ -124,7 +124,7 @@ void MyPlayer::initializeLights(QVector<QVector<int> >* board) {
     this->lights.at(2)->trailColor = QColor(255, 255, 0);
 
     xSet = 429.3;
-    ySet = 429.3;
+    ySet = 470;
 //    count = 0;
 //    for (int i = 250; i < 500 ; i++) {
 //        for (int j = 250; j < 500; j++) {
