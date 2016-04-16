@@ -17,6 +17,7 @@ public:
 
     // This method will only be called once per game, for the initial placement of the frog
     glm::vec2 initializeFrog(QVector<QVector<int> >* board);
+
 };
 
 #endif // EXAMPLEPLAYER_H
