@@ -151,6 +151,36 @@ void Window::setWalls() {
         }
     }
 
+    // for drawing vWalls####################
+
+    for(int i = 0; i < this->helper.b->walls.size();i++) {
+        int buffer = 35;
+        // to get vec of wall
+        glm::vec2 wallDir = glm::normalize(this->helper.b->walls[i]->point1 - this->helper.b->walls[i]->point2);
+        //to get prependicular vec of wall
+        glm::vec2 prepDir(wallDir.y, -wallDir.x);
+//        std::cout<<wallDir.x<<", "<<wallDir.y<<std::endl;
+        glm::vec2 p11 = glm::vec2(this->helper.b->walls[i]->point1 + (float)buffer*prepDir + wallDir * (float)buffer);
+        glm::vec2 p21 = glm::vec2(this->helper.b->walls[i]->point2 + (float)buffer*prepDir - wallDir * (float)buffer);
+        glm::vec2 p12 = glm::vec2(this->helper.b->walls[i]->point1 - (float)buffer*prepDir + wallDir * (float)buffer);
+        glm::vec2 p22 = glm::vec2(this->helper.b->walls[i]->point2 - (float)buffer*prepDir - wallDir * (float)buffer);
+
+        this->helper.b->vWalls.append(new Wall(p11, p21));
+        this->helper.b->player->vWalls.append(new Wall(p11, p21));
+        this->helper.b->vWalls.append(new Wall(p12, p22));
+        this->helper.b->player->vWalls.append(new Wall(p12, p22));
+        this->helper.b->vWalls.append(new Wall(p11, p12));
+        this->helper.b->player->vWalls.append(new Wall(p11, p12));
+        this->helper.b->vWalls.append(new Wall(p21, p22));
+        this->helper.b->player->vWalls.append(new Wall(p21, p22));
+
+//        Wall temp1 = Wall(p11, p21);
+//        Wall temp2 = Wall(p12, p22);
+//        Wall temp3 = Wall(p11, p12);
+//        Wall temp4 = Wall(p21, p22);
+    }
+    // ####################
+
     if (wallsCount < this->helper.b->numWalls) {
         qDebug() << "You specified " << this->helper.b->numWalls << " wall(s) but only provided endpoints for " << wallsCount;
         qDebug() << "Using " << wallsCount << " wall(s)";

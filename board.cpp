@@ -2,6 +2,7 @@
 #include <QDebug>
 
 QList<Wall*> Board::walls;
+QList<Wall*> Board::vWalls; //####################
 int Board::boardSize = 500.0f;
 
 Board::Board()
@@ -16,6 +17,7 @@ Board::Board()
     this->player = new MyPlayer();
     this->player->lights = this->lights;
     this->player->walls = this->walls;
+    this->player->vWalls = this->vWalls;  //####################
 
     this->currRound = 0;
     this->maxRounds = 5000;

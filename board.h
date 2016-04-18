@@ -18,6 +18,7 @@ public:
     QList<Mosquito*> mosquitoes;
     QList<Light*> lights;
     static QList<Wall*> walls;
+    static QList<Wall*> vWalls; // #################################
     Frog* frog;
     Player* player;
     QVector<QVector<int> > playerBoard; // a 2d array that contains the number of mosquitoes at each position; passed to the Playe

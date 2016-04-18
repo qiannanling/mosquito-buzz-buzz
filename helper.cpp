@@ -34,6 +34,12 @@ void Helper::paint(QPainter *painter, QPaintEvent *event, int elapsed, bool time
         drawWall(painter, b->walls.at(k)->point1.x, b->walls.at(k)->point1.y, b->walls.at(k)->point2.x, b->walls.at(k)->point2.y);
     }
 
+    // ######################
+    for (int k = 0; k < b->vWalls.length(); k++) {
+        drawVWall(painter, b->vWalls.at(k)->point1.x, b->vWalls.at(k)->point1.y, b->vWalls.at(k)->point2.x, b->vWalls.at(k)->point2.y);
+    }
+    // ######################
+
     drawFrog(painter, b->frog->position.x, b->frog->position.y, b->frog->radius);
 }
 
@@ -69,6 +75,16 @@ void Helper::drawWall(QPainter *painter, float px, float py, float p1x, float p1
 
     painter->drawLine(QPointF(px, py), QPoint(p1x, p1y));
 }
+
+//###############################
+void Helper::drawVWall(QPainter *painter, float px, float py, float p1x, float p1y) {
+    circlePen = QPen(Qt::gray);
+    circlePen.setWidth(1);
+    painter->setPen(circlePen);
+
+    painter->drawLine(QPointF(px, py), QPoint(p1x, p1y));
+}
+//###############################
 
 void Helper::drawTrail(QPainter *painter, QList<glm::vec2> points, QColor trailColor) {
     circlePen = QPen(trailColor);

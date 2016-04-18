@@ -15,6 +15,7 @@ public:
 
     QList<Light*> lights; // These are the actual lights in Board (i.e. you can and should move them)
     QList<Wall*> walls; // This is just a copy of the walls in Board (i.e. you cannot move the walls from Player)
+    QList<Wall*> vWalls;  //####################
     QString playerName;
 
     // This method will be called before every step (i.e. before mosquitoes are moved).

@@ -3,10 +3,12 @@
 #include <QDebug>
 #include <math.h>
 #include <stack>
+#include <QPainter>
+#include "helper.h"
 using namespace std;
 
 
-#define BUFFER 30
+double buffer = 30;
 double xFrog = 0;
 double yFrog = 0;
 glm::vec2 frog;
@@ -14,25 +16,28 @@ glm::vec2 frog;
 QList<stack<glm::vec2>> traceRoute;
 glm::vec2 evasive(Wall wall, glm::vec2 dir, int index);
 glm::vec2 goThrough(glm::vec2 start, glm::vec2 end, int index);
-//copy from draw
-//void drawWall(QPainter painter);
 glm::vec2 spiralSearch(glm::vec2 ret);
 QList<QList<Wall>> wallList2D;
 QVector<glm::vec2> dirForLight;
+QVector<glm::vec2> lastPop;
+//QVector<glm::vec2> lastDir;
 
-//QPainter painter;
-
-
+//rewrite isInvalidMove used on Virtual Wall cases, which allow colinear moves and cross endpoints of lines
+bool isInvalidMoveForVirtualWall(glm::vec2 start, glm::vec2 end, Wall wall);
+//this function is used to determine if vec is within virtual walls, excluding cases on the wall eades
 bool withInWall(glm::vec2 end);
-
+//cross product of vec2(p2-p1), vec2(p3-p1), clac the two times of area of triangle p1p2p3.
 float area2(float p1x, float p1y, float p2x, float p2y, float p3x, float p3y);
+glm::vec2 adjustCoordinate(glm::vec2 point);
 
 MyPlayer::MyPlayer()
 {
     this->playerName = "My Player";
 }
 
-void setVirtualWalls(QList<Wall*> walls) {
+void setVirtualWalls(QList<Wall*> walls, int option) {
+    //reset virtual walls distance
+    wallList2D.clear();
     for(int i = 0; i < walls.size();i++) {
         QList<Wall> wallList;
         // to get vec of wall
@@ -40,24 +45,50 @@ void setVirtualWalls(QList<Wall*> walls) {
         //to get prependicular vec of wall
         glm::vec2 prepDir(wallDir.y, -wallDir.x);
 //        std::cout<<wallDir.x<<", "<<wallDir.y<<std::endl;
+        glm::vec2 p11 = glm::vec2(walls[i]->point1 + (float)buffer*prepDir + wallDir * (float)buffer);
+        glm::vec2 p21 = glm::vec2(walls[i]->point2 + (float)buffer*prepDir - wallDir * (float)buffer);
+        glm::vec2 p12 = glm::vec2(walls[i]->point1 - (float)buffer*prepDir + wallDir * (float)buffer);
+        glm::vec2 p22 = glm::vec2(walls[i]->point2 - (float)buffer*prepDir - wallDir * (float)buffer);
 
-        Wall temp1 = Wall(walls[i]->point1 + (float)BUFFER*prepDir + wallDir * (float)BUFFER, walls[i]->point2 + (float)BUFFER*prepDir - wallDir * (float)BUFFER);
-        Wall temp2 = Wall(walls[i]->point1 - (float)BUFFER*prepDir + wallDir * (float)BUFFER, walls[i]->point2 - (float)BUFFER*prepDir - wallDir * (float)BUFFER);
+        if (option == 1) {
+            p11 = adjustCoordinate(p11);
+            p21 = adjustCoordinate(p21);
+            p12 = adjustCoordinate(p12);
+            p22 = adjustCoordinate(p22);
+        }
 
-        Wall temp3 = Wall(walls[i]->point1 + (float)BUFFER*prepDir + wallDir * (float)BUFFER, walls[i]->point1 - (float)BUFFER*prepDir + wallDir * (float)BUFFER);
-        Wall temp4 = Wall(walls[i]->point2 + (float)BUFFER*prepDir - wallDir * (float)BUFFER, walls[i]->point2 - (float)BUFFER*prepDir - wallDir * (float)BUFFER);
+        Wall temp1 = Wall(p11, p21);
+        Wall temp2 = Wall(p12, p22);
+        Wall temp3 = Wall(p11, p12);
+        Wall temp4 = Wall(p21, p22);
 
         wallList.append(temp1);
         wallList.append(temp2);
         wallList.append(temp3);
         wallList.append(temp4);
         wallList2D.append(wallList);
-//        drawWall(painter);
-
-//        std::cout << "wallList2d size:" << wallList2D.size() << std::endl;
      }
 }
 
+/* helper function to adjust the possible out of board milestone */
+glm::vec2 adjustCoordinate(glm::vec2 point) {
+    glm::vec2 ret = glm::vec2(point.x, point.y);
+    if (ret.x <= 0) {
+        ret.x = 0.5;
+        cout << "changed" << point.x << endl;
+    } else if (ret.x >= 500) {
+        ret.x = 499.5;
+        cout << "changed" << point.x << endl;
+    }
+    if (ret.y <= 0) {
+        ret.y = 0.5;
+        cout << "changed" << point.y << endl;
+    } else if (ret.y >= 500) {
+        ret.y = 499.5;
+        cout << "changed" << point.y << endl;
+    }
+    return ret;
+}
 
 /*
  * This method is called once at the start of the game.
@@ -66,8 +97,9 @@ void setVirtualWalls(QList<Wall*> walls) {
  * You can access the walls through this object's "walls" field, which is a vector of Wall*
  */
 glm::vec2 MyPlayer::initializeFrog(QVector<QVector<int> >* board) {
+    buffer = 80;
     walls = this->walls;
-    setVirtualWalls(walls);
+    setVirtualWalls(walls, 0);
 
     /*
      * This places the frog in the center.
@@ -80,9 +112,10 @@ glm::vec2 MyPlayer::initializeFrog(QVector<QVector<int> >* board) {
     yFrog = yret;
     glm::vec2 ret(xFrog,yFrog);
 
+    //runing a spiral search of frog position
     ret = spiralSearch(ret);
+    //stack for miletones
     stack<glm::vec2> milestone;
-//    milestone.push(frog);
     milestone.push(ret);
     traceRoute.append(milestone);
     traceRoute.append(milestone);
@@ -126,6 +159,10 @@ void MyPlayer::initializeLights(QVector<QVector<int> >* board) {
     /*
      * You can, of course, put the lights anywhere you like!
      */
+
+    //reset buffer to 50
+    buffer = 50;
+    setVirtualWalls(walls, 0);
     double xSet = 70.7;
     double ySet = 70.7;
     glm::vec2 ret0(xSet, ySet);
@@ -161,16 +198,27 @@ void MyPlayer::initializeLights(QVector<QVector<int> >* board) {
     this->lights.at(3)->trailColor = QColor(255, 0, 255);
 
 
+
+    //push milestones for each lights.
     traceRoute[0].push(ret1);
-    //add last time moving dir for each light, so that we can check if vec(next milestone - curr) has changed direction
+    // for each light, add moving dir of last time to global variable dirForLight, so that we can check if vec(next milestone - currPos) in updateLight method has changed direction
     //meaning we passed milestone.
-    dirForLight.append(ret1-ret0);
+    dirForLight.append(glm::normalize(ret1-ret0));
     traceRoute[1].push(ret3);
-    dirForLight.append(ret3-ret1);
+    dirForLight.append(glm::normalize(ret3-ret1));
     traceRoute[2].push(ret0);
-    dirForLight.append(ret0-ret2);
+    dirForLight.append(glm::normalize(ret0-ret2));
     traceRoute[3].push(ret2);
-    dirForLight.append(ret2-ret3);
+    dirForLight.append(glm::normalize(ret2-ret3));
+
+    for (int i = 0; i < 4; i++) {
+        lastPop.append(glm::vec2(-1, -1));
+//        lastDir.append(glm::vec2(5, 5));
+    }
+
+    //reset virtual walls
+    buffer = 35;
+    setVirtualWalls(walls, 1);
 
 }
 
@@ -185,7 +233,6 @@ void MyPlayer::initializeLights(QVector<QVector<int> >* board) {
  */
 
 void MyPlayer::updateLights(QVector<QVector<int> >* board) {
-
     for (int i = 0; i < this->lights.length(); i++) {
         if(traceRoute[i].empty()) {
             //deal with to do followed
@@ -194,19 +241,41 @@ void MyPlayer::updateLights(QVector<QVector<int> >* board) {
 
             glm::vec2 currPos = this->lights[i]->getPosition();
             glm::vec2 nextOne = traceRoute[i].top();
-            //need to handel if stack top one close to frog
-            //to do
-            //jump out if only frog in stack or nextOne not reach
-            if (glm::length(nextOne - currPos)<=0.6 && glm::dot(nextOne-currPos,dirForLight[i])<0) {
-                if(traceRoute[i].size()!=1){
+
+            // determine if should pop out & update nextOne
+            if (glm::length(nextOne - currPos) <= 0.6 && glm::dot(nextOne - (currPos + (float) 0.6 * dirForLight[i]), dirForLight[i]) < 0) {
+//                int mosNum = 0;
+//                for (int x = 0; x < board->size(); x++) {
+//                    for (int y = 0; y < board->at(x).size(); y++) {
+//                        int numMosquitoes = board->at(x).at(y);
+//                        mosNum += numMosquitoes;
+//                    }
+//                }
+//                if (mosNum >= 480) {
+//                    glm::vec2 frog(xFrog,yFrog);
+//                    stack<glm::vec2> headToFrog;
+//                    headToFrog.push(frog);
+//                    traceRoute.clear();
+//                    for (int i = 0; i < 4; i++) {
+//                        traceRoute.append(headToFrog);
+//                    }
+//                } else if
+                 if (traceRoute[i].size() != 1){
+                    glm::vec2 temp = traceRoute[i].top();
+                    cout << "poped from " << i << ":" << temp.x <<","<<temp.y<<endl;
+                    lastPop[i] = temp;
+//                    lastDir[i] = dirForLight[i];
+
                     traceRoute[i].pop();
                     nextOne = traceRoute[i].top();
+                    cout << i << " heading to " << nextOne.x <<","<<nextOne.y<<endl;
                 }
             }
+
             //go to next one
             glm::vec2 deltaVec = glm::normalize(nextOne - currPos);
-            deltaVec = goThrough(currPos, currPos+deltaVec, i);
-            this->lights[i]->moveTo(currPos.x+0.6*deltaVec.x,currPos.y+0.6*deltaVec.y);
+            deltaVec = goThrough(currPos, currPos + deltaVec, i);
+            this->lights[i]->moveTo(currPos.x + 0.6 * deltaVec.x, currPos.y + 0.6 * deltaVec.y);
             dirForLight[i] = deltaVec;
         }
     }
@@ -222,18 +291,25 @@ glm::vec2 evasive(Wall wall, glm::vec2 dir, int index) {
 
     if(glm::dot(wallDir, temp)>0) {
         temp = wall.point1;
-    } else if(glm::dot(wallDir, temp)<0){
+    } else if(glm::dot(wallDir, temp)<0) {
         temp = wall.point2;
     } else {
-        //nothing changed
+        //nothing changed, don't push, will not happen
         return (glm::vec2)NULL;
     }
-    traceRoute[index].push(temp);
-    cout<<"stack"<<index<< " size: "<<traceRoute[index].size()<<endl;
-    cout<<"top is : " <<traceRoute[index].top().x<<","<<traceRoute[index].top().y<<endl;
+
+    //to check if push the duplicate, only different milestone will be pushed
+    if(glm::length(traceRoute[index].top()-temp)>0.0001 && glm::length(lastPop[index] - temp) > 0.0001){
+//            && (lastDir[index].x * lastDir[index].y * dirForLight[index].x * dirForLight[index].y < 1
+//                && abs(lastDir[index].x) - abs(dirForLight[index].x) < 0.005
+//                && abs(lastDir[index].y) - abs(dirForLight[index].y) < 0.005)) {
+        traceRoute[index].push(temp);
+        cout << "pushed to " << index <<":" << temp.x <<","<<temp.y << endl;
+//        cout << "lastDir of  " << index <<":" << lastDir[index].x <<","<<lastDir[index].y << endl;
+//        cout << "curDir of  " << index <<":" << dirForLight[index].x <<","<<dirForLight[index].y << endl;
+    }
 
     ret = temp;
-//    std::cout<<wallDir.x<<","<<wallDir.y<<std::endl;
     return ret;
 }
 
@@ -244,24 +320,19 @@ glm::vec2 goThrough(glm::vec2 start, glm::vec2 end, int index) {
 
     for (int i = 0;i < wallList2D.size(); i++) {
         for(int j = 0;j<wallList2D[i].size();j++) {
-            if((wallList2D[i][j]).isInvalidMove(start,end)) {
-//                std::cout<< wallList2D[i][j].point1.x <<","<< wallList2D[i][j].point1.y<< std::endl;
-//                std::cout<< wallList2D[i][j].point2.x <<","<< wallList2D[i][j].point2.y<< std::endl;
+            //only invalid move && end point without virtual walls can be count as invalid move
+            //rule out cases about crossing common point for two adjacent walls
+            if(isInvalidMoveForVirtualWall(start,end,wallList2D[i][j]) && withInWall(end)) {
+                cout<<"Invalid!"<<endl;
+                std::cout<< i << "," << j << "," << wallList2D[i][j].point1.x <<","<< wallList2D[i][j].point1.y<< std::endl;
+                std::cout<< i << "," << j << "," << wallList2D[i][j].point2.x <<","<< wallList2D[i][j].point2.y<< std::endl;
                 ret = evasive(wallList2D[i][j], end-start, index);
                 //not changed
                 if(ret == (glm::vec2)NULL) {
                     ret = end - start;
                 }
                 ret = glm::normalize(ret-start);
-                if(withInWall(start+ret)){
-//                    std::cout<<ret.x<<","<<ret.y<<std::endl;
-                    continue;
-                }
-
-//                if(glm::length(goThrough(start, start+ret) - ret) <= 0.1) {
-//                    ret = -ret;
-//                }
-
+                return ret;
             }
 
         }
@@ -279,11 +350,7 @@ bool withInWall(glm::vec2 end) {
        float areaThree = abs(area2(end.x, end.y, wallList2D[i][2].point1.x, wallList2D[i][2].point1.y,wallList2D[i][2].point2.x,wallList2D[i][2].point2.y));
        float areaFour = abs(area2(end.x, end.y, wallList2D[i][3].point1.x, wallList2D[i][3].point1.y,wallList2D[i][3].point2.x,wallList2D[i][3].point2.y));
        sum += areaOne;
-//       std::cout<<"sum:"<<sum<<std::endl;
        sum += areaTwo;
-//       std::cout<<"sum:"<<sum<<std::endl;
-//       std::cout<<"area:"<<glm::length(wallList2D[i][0].point1-wallList2D[i][1].point1)*glm::length(wallList2D[i][1].point1-wallList2D[i][1].point2)<<std::endl;
-
        if(areaOne!=0.0f && areaTwo!=0.0f && areaThree!=0.0f && areaFour!=0.0f &&(abs(sum-(glm::length(wallList2D[i][0].point1-wallList2D[i][1].point1)*glm::length(wallList2D[i][1].point1-wallList2D[i][1].point2)) <= 1))) {
            return true;
         }
@@ -291,41 +358,41 @@ bool withInWall(glm::vec2 end) {
     return false;
 }
 
+
 glm::vec2 spiralSearch(glm::vec2 ret) {
     double angle = 0;
     double centerX = ret.x;
     double centerY = ret.y;
-    if(withInWall(ret)) {
-        while(withInWall(ret)) {
-            ret.x = centerX + angle*cos(angle);
-            ret.y = centerY + angle*sin(angle);
-            angle += 0.001;
-//            std::cout << "coordinate x, y:" <<ret.x<<","<<ret.y<<std::endl;
-        }
+    while(withInWall(ret)) {
+        ret.x = centerX + angle*cos(angle);
+        ret.y = centerY + angle*sin(angle);
+        angle += 0.001;
     }
     return ret;
 }
 
-//void drawWall2(QPainter *painter) {
-//    QPen circlePen = QPen(Qt::yellow);
-//    circlePen.setWidth(2);
-//    painter->setPen(circlePen);
-//    std::cout<<"debug3"<<std::endl;
-//    for (int i = 0;i < wallList2D.size(); i++) {
-//        for(int j = 0;j<wallList2D[i].size();j++) {
-//            std::cout<<"debug"<<std::endl;
-//            painter->drawLine(QPoint(wallList2D[i][j].point1.x, wallList2D[i][j].point1.y), QPoint(wallList2D[i][j].point2.x, wallList2D[i][j].point2.y));
-//        }
+//rewrite isInvalidMove used on Virtual Wall cases, which allow colinear moves and cross endpoints of lines
+bool isInvalidMoveForVirtualWall(glm::vec2 start, glm::vec2 end, Wall wall)
+{
 
-//    }
+    float x1 = start.x;
+    float y1 = start.y;
+    float x2 = end.x;
+    float y2 = end.y;
 
-//}
+    float x3 = wall.point1.x;
+    float y3 = wall.point1.y;
+    float x4 = wall.point2.x;
+    float y4 = wall.point2.y;
+    float a1, a2, a3, a4;
 
-//void Helper::drawWall(QPainter *painter, float px, float py, float p1x, float p1y) {
-//    circlePen = QPen(Qt::red);
-//    circlePen.setWidth(2);
-//    painter->setPen(circlePen);
+    a1 = area2(x1, y1, x2, y2, x3, y3);
+    a2 = area2(x1, y1, x2, y2, x4, y4);
+    a3 = area2(x3, y3, x4, y4, x1, y1);
+    a4 = area2(x3, y3, x4, y4, x2, y2);
+    if(a1==0.0f||a2==0.0f||a3==0.0f||a4==0.0f) {
+        return false;
+    }
+    return ((a1 > 0.0) ^ (a2 > 0.0)) && ((a3 > 0.0) ^ (a4 > 0.0));
 
-//    painter->drawLine(QPointF(px, py), QPoint(p1x, p1y));
-//}
-
+}

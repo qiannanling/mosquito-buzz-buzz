@@ -25,6 +25,7 @@ private:
     void drawLight(QPainter *painter, float px, float py, float radius);
     void drawMosquito(QPainter *painter, float px, float py);
     void drawWall(QPainter *painter, float px1, float py1, float p1x, float p1y);
+    void drawVWall(QPainter *painter, float px1, float py1, float p1x, float p1y); //######################
     void drawTrail(QPainter *painter, QList<glm::vec2> points, QColor trailColor);
 
 };
